@@ -4,7 +4,6 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
-# On Railway, set BOT_TOKEN as an Environment Variable (never hardcode it)
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 # ─── LOGGING ───────────────────────────────────────────────────────────────────
@@ -14,23 +13,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ─── COMMAND HANDLERS ──────────────────────────────────────────────────────────
+# ─── RESPONSES ─────────────────────────────────────────────────────────────────
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
     await update.message.reply_text(
         f"👋 Hello, {name}! Welcome to *Your Business Name*.\n\n"
-        "I'm here to help you. Here's what I can do:\n\n"
-        "📞 /contact — Get our contact information\n"
-        "💰 /price — View our pricing plans\n"
-        "🆓 /support — Free support & assistance\n"
-        "❓ /help — Show all commands\n\n"
-        "How can I help you today?",
+        "I'm here to help you. Just type any of these words:\n\n"
+        "📞 *contact* — Get our contact information\n"
+        "💰 *price* — View our pricing plans\n"
+        "🆓 *support* — Free support & assistance\n"
+        "❓ *help* — Show all commands\n\n"
+        "No need to type / before the word 😊",
         parse_mode="Markdown"
     )
 
-
-async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📞 *Contact Us*\n\n"
         "🏢 *Company:* Your Business Name\n"
@@ -43,8 +41,7 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-
-async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "💰 *Our Pricing Plans*\n\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
@@ -61,12 +58,11 @@ async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  ✅ Priority support\n"
         "  ✅ Unlimited access\n\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "📩 For custom pricing, use /contact",
+        "📩 For custom pricing, type *contact*",
         parse_mode="Markdown"
     )
 
-
-async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🆓 *Free Support*\n\n"
         "We offer *free support* for all our users!\n\n"
@@ -78,26 +74,38 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def send_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "❓ *Help — Available Commands*\n\n"
-        "/start — Welcome message & overview\n"
-        "/contact — Our contact details\n"
-        "/price — View our pricing plans\n"
-        "/support — Free support resources\n"
-        "/help — Show this help message\n\n"
-        "💡 Tap any command above to use it!",
+        "❓ *Help — Available Keywords*\n\n"
+        "Just type any of these words:\n\n"
+        "📞 *contact* — Our contact details\n"
+        "💰 *price* — View our pricing plans\n"
+        "🆓 *support* — Free support resources\n"
+        "❓ *help* — Show this help message\n\n"
+        "💡 No need to use / before any word!",
         parse_mode="Markdown"
     )
 
+# ─── KEYWORD HANDLER ───────────────────────────────────────────────────────────
 
-async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🤔 Sorry, I didn't understand that.\n\n"
-        "Please use /help to see all available commands."
-    )
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.lower().strip()
 
+    if any(word in text for word in ["start", "hi", "hello", "hey"]):
+        await send_start(update, context)
+    elif "contact" in text:
+        await send_contact(update, context)
+    elif "price" in text or "pricing" in text or "cost" in text or "plan" in text:
+        await send_price(update, context)
+    elif "support" in text or "help" in text or "assist" in text:
+        await send_support(update, context)
+    else:
+        await update.message.reply_text(
+            "🤔 I didn't understand that.\n\n"
+            "Try typing one of these:\n"
+            "👉 *contact*, *price*, *support*, *help*",
+            parse_mode="Markdown"
+        )
 
 # ─── MAIN ──────────────────────────────────────────────────────────────────────
 
@@ -107,12 +115,15 @@ def main():
 
     app = Application.builder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start",   start))
-    app.add_handler(CommandHandler("contact", contact))
-    app.add_handler(CommandHandler("price",   price))
-    app.add_handler(CommandHandler("support", support))
-    app.add_handler(CommandHandler("help",    help_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
+    # Slash commands still work too
+    app.add_handler(CommandHandler("start",   send_start))
+    app.add_handler(CommandHandler("contact", send_contact))
+    app.add_handler(CommandHandler("price",   send_price))
+    app.add_handler(CommandHandler("support", send_support))
+    app.add_handler(CommandHandler("help",    send_help))
+
+    # Keyword handler — no slash needed
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("Bot is running...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
